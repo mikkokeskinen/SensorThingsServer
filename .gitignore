@@ -6,3 +6,4 @@
 /SensorThingsServer.Core/target/
 /SensorThingsServer.SQL/target/
 /SensorThingsServer.MQTT.Moquette/target/
+keycloak.json

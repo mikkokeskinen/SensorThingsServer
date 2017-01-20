@@ -1,8 +1,114 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<web-app version="3.1" xmlns="http://xmlns.jcp.org/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd">
+<web-app
+    version="3.1"
+    xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd">
+
+    <module-name>SensorThingsService</module-name>
+
+    <security-role>
+        <description>Role that is allowed to initiate database upgrades.</description>
+        <role-name>admin</role-name>
+    </security-role>
+    <security-role>
+        <description>Role that is allowed to read (GET) entities.</description>
+        <role-name>read</role-name>
+    </security-role>
+    <security-role>
+        <description>Role that is allowed to create (POST) new entities.</description>
+        <role-name>create</role-name>
+    </security-role>
+    <security-role>
+        <description>Role that is allowed to update (PUT, PATCH) entities.</description>
+        <role-name>update</role-name>
+    </security-role>
+    <security-role>
+        <description>Role that is allowed to delete entities.</description>
+        <role-name>delete</role-name>
+    </security-role>
+
+    <security-constraint>
+        <display-name>DatabaseStatus</display-name>
+        <web-resource-collection>
+            <web-resource-name>DatabaseStatus</web-resource-name>
+            <url-pattern>/DatabaseStatus</url-pattern>
+            <url-pattern>/v0.0</url-pattern>
+            <url-pattern>/v0.0/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <description>Reading the database status and initiating database upgrades.</description>
+            <role-name>admin</role-name>
+        </auth-constraint>
+    </security-constraint>
+    <security-constraint>
+        <display-name>Reading Entities</display-name>
+        <web-resource-collection>
+            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <url-pattern>/v1.0</url-pattern>
+            <url-pattern>/v1.0/*</url-pattern>
+            <http-method>GET</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>read</role-name>
+        </auth-constraint>
+    </security-constraint>
+    <security-constraint>
+        <display-name>Creating Entities</display-name>
+        <web-resource-collection>
+            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <url-pattern>/v1.0</url-pattern>
+            <url-pattern>/v1.0/*</url-pattern>
+            <http-method>POST</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>create</role-name>
+        </auth-constraint>
+    </security-constraint>
+    <security-constraint>
+        <display-name>Updating Entities</display-name>
+        <web-resource-collection>
+            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <url-pattern>/v1.0</url-pattern>
+            <url-pattern>/v1.0/*</url-pattern>
+            <http-method>PUT</http-method>
+            <http-method>PATCH</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>update</role-name>
+        </auth-constraint>
+    </security-constraint>
+    <security-constraint>
+        <display-name>Deleting Entities</display-name>
+        <web-resource-collection>
+            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <url-pattern>/v1.0</url-pattern>
+            <url-pattern>/v1.0/*</url-pattern>
+            <http-method>DELETE</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>delete</role-name>
+        </auth-constraint>
+    </security-constraint>
+    <security-constraint>
+        <display-name>Deleting Entities</display-name>
+        <web-resource-collection>
+            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <url-pattern>/v1.0</url-pattern>
+            <url-pattern>/v1.0/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>admin</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <login-config>
+        <auth-method>KEYCLOAK</auth-method>
+        <realm-name>this is ignored currently</realm-name>
+    </login-config>
+
     <session-config>
-        <session-timeout>
-            30
-        </session-timeout>
+        <session-timeout>30</session-timeout>
     </session-config>
+
 </web-app>
