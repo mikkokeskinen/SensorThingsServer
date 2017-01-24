@@ -44,6 +44,7 @@ public class CoreSettings {
     public static final String TAG_SERVICE_ROOT_URL = "serviceRootUrl";
     private static final String TAG_USE_ABSOLUTE_NAVIGATION_LINKS = "useAbsoluteNavigationLinks";
     private static final String TAG_TEMP_PATH = "tempPath";
+    private static final String TAG_KEYCLOAK_CONFIG = "keycloak.config.file";
 
     /**
      * Defaults
@@ -98,6 +99,10 @@ public class CoreSettings {
      * The Persistence settings to use
      */
     private PersistenceSettings persistenceSettings;
+    /**
+     * The config file for keyCloak;
+     */
+    private String keycloakConfig;
 
     /**
      * The default top to use when no specific top is set.
@@ -199,6 +204,8 @@ public class CoreSettings {
         if (mqttSettings.getTopicPrefix() == null || mqttSettings.getTopicPrefix().isEmpty()) {
             mqttSettings.setTopicPrefix(apiVersion + "/");
         }
+
+        keycloakConfig = settings.getWithDefault(TAG_KEYCLOAK_CONFIG, "", String.class);
     }
 
     public static CoreSettings load(String file) {
@@ -237,6 +244,24 @@ public class CoreSettings {
 
     public String getTempPath() {
         return tempPath;
+    }
+
+    /**
+     * The config file for keyCloak;
+     *
+     * @return the keycloakConfig
+     */
+    public String getKeycloakConfig() {
+        return keycloakConfig;
+    }
+
+    /**
+     * The config file for keyCloak;
+     *
+     * @param keycloakConfig the keycloakConfig to set
+     */
+    public void setKeycloakConfig(String keycloakConfig) {
+        this.keycloakConfig = keycloakConfig;
     }
 
 }

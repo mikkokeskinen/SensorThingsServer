@@ -126,7 +126,7 @@ public class MqttManager implements SubscriptionListener, EntityChangeListener, 
     private void handleObservationCreateEvent(ObservationCreateEvent e) {
         // check path?
         if (!e.getTopic().endsWith("Observations")) {
-            LOGGER.info("received message on topic '{}' which is no valid topic to create an observation.");
+            LOGGER.info("received message on topic '{}' which is no valid topic to create an observation.", e.getTopic());
             return;
         }
         String url = e.getTopic().replaceFirst(settings.getApiVersion(), "");
@@ -154,6 +154,7 @@ public class MqttManager implements SubscriptionListener, EntityChangeListener, 
     private void init() {
         MqttSettings mqttSettings = settings.getMqttSettings();
         if (mqttSettings.isEnableMqtt()) {
+            LOGGER.info("Starting MQTT Server.");
             shutdown = false;
             entityChangedEventQueue = new ArrayBlockingQueue<>(mqttSettings.getSubscribeMessageQueueSize());
             // start watching for EntityChangedEvents
@@ -173,9 +174,13 @@ public class MqttManager implements SubscriptionListener, EntityChangeListener, 
             server = MqttServerFactory.getInstance().get(settings);
             server.addSubscriptionListener(this);
             server.addEntityCreateListener(this);
-            server.start();
-
+            try {
+                server.start();
+            } catch (Exception e) {
+                LOGGER.error("Failed to start MQTT Server.", e);
+            }
         } else {
+            LOGGER.info("MQTT Server disabled.");
             entityChangedExecutorService = null;
             entityChangedEventQueue = new ArrayBlockingQueue<>(1);
             observationCreateExecutorService = null;

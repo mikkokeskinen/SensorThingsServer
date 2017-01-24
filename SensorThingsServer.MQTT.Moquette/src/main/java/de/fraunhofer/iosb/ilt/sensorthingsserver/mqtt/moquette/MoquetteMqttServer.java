@@ -17,6 +17,24 @@
  */
 package de.fraunhofer.iosb.ilt.sensorthingsserver.mqtt.moquette;
 
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+
+import javax.swing.event.EventListenerList;
+
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.slf4j.LoggerFactory;
+
 import de.fraunhofer.iosb.ilt.sta.mqtt.MqttServer;
 import de.fraunhofer.iosb.ilt.sta.mqtt.create.EntityCreateListener;
 import de.fraunhofer.iosb.ilt.sta.mqtt.create.ObservationCreateEvent;
@@ -24,6 +42,7 @@ import de.fraunhofer.iosb.ilt.sta.mqtt.subscription.SubscriptionEvent;
 import de.fraunhofer.iosb.ilt.sta.mqtt.subscription.SubscriptionListener;
 import de.fraunhofer.iosb.ilt.sta.settings.CoreSettings;
 import de.fraunhofer.iosb.ilt.sta.settings.MqttSettings;
+import de.fraunhofer.iosb.ilt.sta.settings.Settings;
 import io.moquette.BrokerConstants;
 import io.moquette.interception.AbstractInterceptHandler;
 import io.moquette.interception.InterceptHandler;
@@ -35,21 +54,6 @@ import io.moquette.interception.messages.InterceptUnsubscribeMessage;
 import io.moquette.server.Server;
 import io.moquette.server.config.IConfig;
 import io.moquette.server.config.MemoryConfig;
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
-import javax.swing.event.EventListenerList;
-import org.eclipse.paho.client.mqttv3.MqttClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
-import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -60,7 +64,13 @@ public class MoquetteMqttServer implements MqttServer {
     /**
      * Custom Settings | Tags
      */
-    private static final String TAG_WEBSOCKET_PORT = "WebsocketPort";
+    public static final String TAG_WEBSOCKET_PORT = "websocket_port";
+    public static final String TAG_KEYSTORE_PATH = "jks_path";
+    public static final String TAG_KEYSTORE_PASSWORD = "key_store_password";
+    public static final String TAG_KEYMANAGER_PASSWORD = "key_manager_password";
+    public static final String TAG_SSL_PORT = "ssl_port";
+    public static final String TAG_SSL_WEBSOCKET_PORT = "secure_websocket_port";
+    public static final String TAG_KEYCLOAK_CONFIG_FILE = "keycloak.config.file";
     /**
      * Custom Settings | Default values
      */
@@ -194,6 +204,7 @@ public class MoquetteMqttServer implements MqttServer {
 
         IConfig config = new MemoryConfig(new Properties());
         MqttSettings mqttSettings = settings.getMqttSettings();
+        Settings customSettings = mqttSettings.getCustomSettings();
         config.setProperty(BrokerConstants.PORT_PROPERTY_NAME, Integer.toString(mqttSettings.getPort()));
         config.setProperty(BrokerConstants.HOST_PROPERTY_NAME, mqttSettings.getHost());
         config.setProperty(BrokerConstants.ALLOW_ANONYMOUS_PROPERTY_NAME, Boolean.TRUE.toString());
@@ -201,7 +212,23 @@ public class MoquetteMqttServer implements MqttServer {
                 Paths.get(settings.getTempPath(),
                         BrokerConstants.DEFAULT_MOQUETTE_STORE_MAP_DB_FILENAME).toString());
         config.setProperty(BrokerConstants.WEB_SOCKET_PORT_PROPERTY_NAME,
-                mqttSettings.getCustomSettings().getWithDefault(TAG_WEBSOCKET_PORT, DEFAULT_WEBSOCKET_PORT, Integer.class).toString());
+                customSettings.getWithDefault(TAG_WEBSOCKET_PORT, DEFAULT_WEBSOCKET_PORT, Integer.class).toString());
+
+        String keystorePath = customSettings.getWithDefault(TAG_KEYSTORE_PATH, "", String.class);
+        if (!keystorePath.isEmpty()) {
+            config.setProperty(BrokerConstants.JKS_PATH_PROPERTY_NAME, keystorePath);
+            config.setProperty(BrokerConstants.KEY_STORE_PASSWORD_PROPERTY_NAME, customSettings.getString(TAG_KEYSTORE_PASSWORD));
+            config.setProperty(BrokerConstants.KEY_MANAGER_PASSWORD_PROPERTY_NAME, customSettings.getString(TAG_KEYMANAGER_PASSWORD));
+            config.setProperty(BrokerConstants.SSL_PORT_PROPERTY_NAME, customSettings.getString(TAG_SSL_PORT));
+            config.setProperty(BrokerConstants.WSS_PORT_PROPERTY_NAME, customSettings.getString(TAG_SSL_WEBSOCKET_PORT));
+        }
+        String keycloakConfig = settings.getKeycloakConfig();
+        if (keycloakConfig != null && !keycloakConfig.isEmpty()) {
+            config.setProperty(TAG_KEYCLOAK_CONFIG_FILE, keycloakConfig);
+            config.setProperty("authenticator_class", "de.fraunhofer.iosb.ilt.sensorthingsserver.mqtt.moquette.AuthOpenIDConnect");
+            config.setProperty("authorizator_class", "de.fraunhofer.iosb.ilt.sensorthingsserver.mqtt.moquette.AuthOpenIDConnect");
+            AuthOpenIDConnect.setSensorThingsClientID(clientId);
+        }
         try {
             mqttBroker.startServer(config, userHandlers);
             String broker = "tcp://" + mqttSettings.getHost() + ":" + mqttSettings.getPort();
