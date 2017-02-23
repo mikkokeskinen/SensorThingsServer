@@ -9,7 +9,7 @@
     <Parameter name="useAbsoluteNavigationLinks" value="false" description="If true, navigationLinks are absolute, otherwise relative."/>
     <!-- MQTT setting -->
     <Parameter name="mqtt.mqttServerImplementationClass" value="de.fraunhofer.iosb.ilt.sensorthingsserver.mqtt.moquette.MoquetteMqttServer" description="The java class used for running the MQTT server (must implement MqttServer interface)"/>
-    <Parameter name="mqtt.Enabled" value="true" description="Specifies wether MQTT support will be enabled or not."/>
+    <Parameter name="mqtt.Enabled" value="false" description="Specifies wether MQTT support will be enabled or not."/>
     <Parameter name="mqtt.Port" value="1883" description="The port the MQTT server runs on."/>
     <Parameter name="mqtt.QoS" value="0" description="Quality of Service Level for MQTT messages."/>
     <Parameter name="mqtt.SubscribeMessageQueueSize" value="10" description="Queue size for messages to be pubslihed via MQTT."/>
@@ -30,6 +30,15 @@
         maxTotal="20" maxIdle="10" maxWaitMillis="-1"
         defaultAutoCommit="false"
     />
+    <Realm
+        className="org.apache.catalina.realm.DataSourceRealm"
+        dataSourceName="jdbc/sensorThings"
+        localDataSource="true"
+        userTable="users" userRoleTable="user_roles"
+        userNameCol="user_name"
+        userCredCol="user_pass"
+        roleNameCol="role_name"/>
+
     <!-- Direct database connection. Does not do connection pooling. -->
     <!--
     <Parameter name="persistence.db_driver" value="org.postgresql.Driver" description="Database driver classname"/>
