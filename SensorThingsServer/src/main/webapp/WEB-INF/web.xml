@@ -21,10 +21,14 @@
         <role-name>delete</role-name>
     </security-role>
 
+    <deny-uncovered-http-methods/>
+
     <security-constraint>
         <web-resource-collection>
-            <web-resource-name>OPTIONS</web-resource-name>
+            <web-resource-name>DEFAULT</web-resource-name>
             <http-method>OPTIONS</http-method>
+            <http-method>HEAD</http-method>
+            <http-method>GET</http-method>
             <url-pattern>/*</url-pattern>
         </web-resource-collection>
     </security-constraint>
@@ -34,8 +38,6 @@
         <web-resource-collection>
             <web-resource-name>DatabaseStatus</web-resource-name>
             <url-pattern>/DatabaseStatus</url-pattern>
-            <url-pattern>/v0.0</url-pattern>
-            <url-pattern>/v0.0/*</url-pattern>
         </web-resource-collection>
         <auth-constraint>
             <description>Reading the database status and initiating database upgrades.</description>
@@ -48,6 +50,7 @@
             <web-resource-name>SensorThingsAPI GET</web-resource-name>
             <url-pattern>/v1.0</url-pattern>
             <url-pattern>/v1.0/*</url-pattern>
+            <http-method>HEAD</http-method>
             <http-method>GET</http-method>
         </web-resource-collection>
         <auth-constraint>
