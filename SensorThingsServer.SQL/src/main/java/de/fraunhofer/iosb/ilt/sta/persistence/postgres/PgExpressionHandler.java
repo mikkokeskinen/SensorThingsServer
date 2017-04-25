@@ -117,6 +117,13 @@ import de.fraunhofer.iosb.ilt.sta.query.expression.function.string.SubstringOf;
 import de.fraunhofer.iosb.ilt.sta.query.expression.function.string.ToLower;
 import de.fraunhofer.iosb.ilt.sta.query.expression.function.string.ToUpper;
 import de.fraunhofer.iosb.ilt.sta.query.expression.function.string.Trim;
+import de.fraunhofer.iosb.ilt.sta.query.expression.function.temporal.After;
+import de.fraunhofer.iosb.ilt.sta.query.expression.function.temporal.Before;
+import de.fraunhofer.iosb.ilt.sta.query.expression.function.temporal.During;
+import de.fraunhofer.iosb.ilt.sta.query.expression.function.temporal.Finishes;
+import de.fraunhofer.iosb.ilt.sta.query.expression.function.temporal.Meets;
+import de.fraunhofer.iosb.ilt.sta.query.expression.function.temporal.Overlaps;
+import de.fraunhofer.iosb.ilt.sta.query.expression.function.temporal.Starts;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -151,7 +158,6 @@ public class PgExpressionHandler implements ExpressionVisitor<Expression<?>> {
      * The table reference for the main table of the request.
      */
     private final PathSqlBuilder.TableRef tableRef;
-    private int orderCount = 0;
 
     public PgExpressionHandler(PathSqlBuilder psb, PathSqlBuilder.TableRef tableRef) {
         this.psb = psb;
@@ -163,10 +169,19 @@ public class PgExpressionHandler implements ExpressionVisitor<Expression<?>> {
         if (filterExpression instanceof Predicate) {
             Predicate predicate = (Predicate) filterExpression;
             sqlQuery.where(predicate);
-        } else {
-            LOGGER.error("Filter is not a predicate but a {}.", filterExpression.getClass().getName());
-            throw new IllegalArgumentException("Filter is not a predicate but a " + filterExpression.getClass().getName());
+            return;
+        } else if (filterExpression instanceof ListExpression) {
+            ListExpression listExpression = (ListExpression) filterExpression;
+            for (Expression<?> expression : listExpression.getExpressions().values()) {
+                if (expression instanceof Predicate) {
+                    Predicate predicate = (Predicate) expression;
+                    sqlQuery.where(predicate);
+                    return;
+                }
+            }
         }
+        LOGGER.error("Filter is not a predicate but a {}.", filterExpression.getClass().getName());
+        throw new IllegalArgumentException("Filter is not a predicate but a " + filterExpression.getClass().getName());
     }
 
     public void addOrderbyToQuery(OrderBy orderBy, SQLQuery<Tuple> sqlQuery) {
@@ -181,7 +196,7 @@ public class PgExpressionHandler implements ExpressionVisitor<Expression<?>> {
             addToQuery(orderBy, duration.getDuration(), sqlQuery);
         }
         if (resultExpression instanceof ListExpression) {
-            for (Expression<?> sqlExpression : ((ListExpression) resultExpression).getExpressions().values()) {
+            for (Expression<?> sqlExpression : ((ListExpression) resultExpression).getExpressionsForOrder().values()) {
                 addToQuery(orderBy, sqlExpression, sqlQuery);
             }
         } else {
@@ -433,6 +448,127 @@ public class PgExpressionHandler implements ExpressionVisitor<Expression<?>> {
         instance.set(1970, 1, 1, time.getHourOfDay(), time.getMinuteOfHour(), time.getSecondOfMinute());
         ConstantTimeExpression constant = new ConstantTimeExpression(new java.sql.Time(instance.getTimeInMillis()));
         return constant;
+    }
+
+    @Override
+    public Expression<?> visit(Before node) {
+        List<de.fraunhofer.iosb.ilt.sta.query.expression.Expression> params = node.getParameters();
+        Expression<?> p1 = params.get(0).accept(this);
+        Expression<?> p2 = params.get(1).accept(this);
+        if (p1 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti1 = (TimeIntervalExpression) p1;
+            return ti1.before(p2);
+        }
+        if (p2 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti2 = (TimeIntervalExpression) p2;
+            return ti2.after(p1);
+        }
+        DateTimeExpression d1 = getSingleOfType(DateTimeExpression.class, p1);
+        DateTimeExpression d2 = getSingleOfType(DateTimeExpression.class, p2);
+        return d1.before(d2);
+    }
+
+    @Override
+    public Expression<?> visit(After node) {
+        List<de.fraunhofer.iosb.ilt.sta.query.expression.Expression> params = node.getParameters();
+        Expression<?> p1 = params.get(0).accept(this);
+        Expression<?> p2 = params.get(1).accept(this);
+        if (p1 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti1 = (TimeIntervalExpression) p1;
+            return ti1.after(p2);
+        }
+        if (p2 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti2 = (TimeIntervalExpression) p2;
+            return ti2.before(p1);
+        }
+        DateTimeExpression d1 = getSingleOfType(DateTimeExpression.class, p1);
+        DateTimeExpression d2 = getSingleOfType(DateTimeExpression.class, p2);
+        return d1.after(d2);
+    }
+
+    @Override
+    public Expression<?> visit(Meets node) {
+        List<de.fraunhofer.iosb.ilt.sta.query.expression.Expression> params = node.getParameters();
+        Expression<?> p1 = params.get(0).accept(this);
+        Expression<?> p2 = params.get(1).accept(this);
+        if (p1 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti1 = (TimeIntervalExpression) p1;
+            return ti1.meets(p2);
+        }
+        if (p2 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti2 = (TimeIntervalExpression) p2;
+            return ti2.meets(p1);
+        }
+        DateTimeExpression d1 = getSingleOfType(DateTimeExpression.class, p1);
+        DateTimeExpression d2 = getSingleOfType(DateTimeExpression.class, p2);
+        return d1.eq(d2);
+    }
+
+    @Override
+    public Expression<?> visit(During node) {
+        List<de.fraunhofer.iosb.ilt.sta.query.expression.Expression> params = node.getParameters();
+        Expression<?> p1 = params.get(0).accept(this);
+        Expression<?> p2 = params.get(1).accept(this);
+        if (p2 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti2 = (TimeIntervalExpression) p2;
+            return ti2.contains(p1);
+        } else {
+            throw new IllegalArgumentException("Second parameter of 'during' has to be an interval.");
+        }
+    }
+
+    @Override
+    public Expression<?> visit(Overlaps node) {
+        List<de.fraunhofer.iosb.ilt.sta.query.expression.Expression> params = node.getParameters();
+        Expression<?> p1 = params.get(0).accept(this);
+        Expression<?> p2 = params.get(1).accept(this);
+        if (p1 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti1 = (TimeIntervalExpression) p1;
+            return ti1.overlaps(p2);
+        }
+        if (p2 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti2 = (TimeIntervalExpression) p2;
+            return ti2.overlaps(p1);
+        }
+        DateTimeExpression d1 = getSingleOfType(DateTimeExpression.class, p1);
+        DateTimeExpression d2 = getSingleOfType(DateTimeExpression.class, p2);
+        return d1.eq(d2);
+    }
+
+    @Override
+    public Expression<?> visit(Starts node) {
+        List<de.fraunhofer.iosb.ilt.sta.query.expression.Expression> params = node.getParameters();
+        Expression<?> p1 = params.get(0).accept(this);
+        Expression<?> p2 = params.get(1).accept(this);
+        if (p1 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti1 = (TimeIntervalExpression) p1;
+            return ti1.starts(p2);
+        }
+        if (p2 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti2 = (TimeIntervalExpression) p2;
+            return ti2.starts(p1);
+        }
+        DateTimeExpression d1 = getSingleOfType(DateTimeExpression.class, p1);
+        DateTimeExpression d2 = getSingleOfType(DateTimeExpression.class, p2);
+        return d1.eq(d2);
+    }
+
+    @Override
+    public Expression<?> visit(Finishes node) {
+        List<de.fraunhofer.iosb.ilt.sta.query.expression.Expression> params = node.getParameters();
+        Expression<?> p1 = params.get(0).accept(this);
+        Expression<?> p2 = params.get(1).accept(this);
+        if (p1 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti1 = (TimeIntervalExpression) p1;
+            return ti1.finishes(p2);
+        }
+        if (p2 instanceof TimeIntervalExpression) {
+            TimeIntervalExpression ti2 = (TimeIntervalExpression) p2;
+            return ti2.finishes(p1);
+        }
+        DateTimeExpression d1 = getSingleOfType(DateTimeExpression.class, p1);
+        DateTimeExpression d2 = getSingleOfType(DateTimeExpression.class, p2);
+        return d1.eq(d2);
     }
 
     @Override
