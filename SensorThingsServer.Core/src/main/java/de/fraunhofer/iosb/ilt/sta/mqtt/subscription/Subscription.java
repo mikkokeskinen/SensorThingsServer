@@ -54,7 +54,6 @@ public abstract class Subscription {
     // TODO make encoding global constant
     protected static final Charset ENCODING = Charset.forName("UTF-8");
     protected final String topic;
-    protected final String errorMsg;
     protected EntityType entityType;
     protected Expression matchExpression = null;
     protected ResourcePath path;
@@ -65,7 +64,6 @@ public abstract class Subscription {
         this.topic = topic;
         this.path = path;
         this.serviceRootUrl = serviceRootUrl;
-        this.errorMsg = "Subscription to topic '" + topic + "' is invalid. Reason: ";
     }
 
     private void initNavigationProperties() {
@@ -88,7 +86,7 @@ public abstract class Subscription {
         if (matchExpression != null) {
             Query query = new Query();
             query.setFilter(matchExpression);
-            Object result = persistenceManager.getEntityById(serviceRootUrl, entityType, newEntity.getId());
+            Object result = persistenceManager.get(newEntity.getPath(), query);
             return result != null;
         }
         return true;

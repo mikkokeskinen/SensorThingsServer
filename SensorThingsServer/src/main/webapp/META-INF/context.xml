@@ -16,12 +16,13 @@
     <Parameter name="mqtt.mqttServerImplementationClass" value="de.fraunhofer.iosb.ilt.sensorthingsserver.mqtt.moquette.MoquetteMqttServer" description="The java class used for running the MQTT server (must implement MqttServer interface)"/>
     <Parameter name="mqtt.Port" value="1883" description="The port the MQTT server runs on."/>
     <Parameter name="mqtt.QoS" value="0" description="Quality of Service Level for MQTT messages."/>
-    <Parameter name="mqtt.SubscribeMessageQueueSize" value="10" description="Queue size for messages to be pubslihed via MQTT."/>
+    <Parameter name="mqtt.SubscribeMessageQueueSize" value="100" description="Queue size for messages to be pubslihed via MQTT."/>
     <Parameter name="mqtt.SubscribeThreadPoolSize" value="10" description="Number of threads use to dispatch MQTT notifications."/>
     <Parameter name="mqtt.CreateMessageQueueSize" value="100" description="Queue size for create observation requests via MQTT ."/>
     <Parameter name="mqtt.CreateThreadPoolSize" value="10" description="Number of threads use to dispatch observation creation requests."/>
-    <Parameter name="mqtt.Host" value="localhost" description="The internal host name of the MQTT server."/>
-    <Parameter name="mqtt.websocket_port" value="9876" description="The port the MQTT server is reachable via WebSocket."/>
+    <Parameter name="mqtt.Host" value="0.0.0.0" description="The external IP address or host name the MQTT server should listen on. Set to 0.0.0.0 to listen on all interfaces."/>
+    <Parameter name="mqtt.internalHost" value="localhost" description="The internal host name of the MQTT server."/>
+    <Parameter name="mqtt.WebsocketPort" value="9876" description="The port the MQTT server is reachable via WebSocket."/>
     <Parameter name="mqtt.ssl_port" value="8883" description="The port using SSL the MQTT server runs on."/>
     <Parameter name="mqtt.secure_websocket_port" value="9875" description="The port the MQTT server is reachable via Secure WebSocket."/>
     <Parameter name="mqtt.jks_path" value="/path/to/serverkeystore.jks" description="The path to the keystore with the ssl certificate to use for MQTT."/>

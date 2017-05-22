@@ -204,17 +204,20 @@ public class PropertyResolver {
      * Get a Map of expressions for the given property and path. Add it to the
      * given Map, or a new Map.
      *
-     * @param property
-     * @param qPath
+     * @param property The property to get expressions for.
+     * @param qPath The path to get expressions for.
      * @param target The Map to add to. If null a new Map will be created.
      * @return The target Map, or a new Map if target was null.
      */
     public static Map<String, Expression<?>> expressionsForProperty(EntityProperty property, Path<?> qPath, Map<String, Expression<?>> target) {
         Map<Class, Map<String, ExpressionFactory>> innerMap = epMapMulti.get(property);
         if (innerMap == null) {
-            throw new IllegalArgumentException("ObservedProperty has no property called " + property.toString());
+            throw new IllegalArgumentException("We do not know any property called " + property.toString());
         }
         Map<String, ExpressionFactory> coreMap = innerMap.get(qPath.getClass());
+        if (coreMap == null) {
+            throw new IllegalArgumentException("No property called " + property.toString() + " for " + qPath.getClass());
+        }
         if (target == null) {
             target = new LinkedHashMap<>();
         }

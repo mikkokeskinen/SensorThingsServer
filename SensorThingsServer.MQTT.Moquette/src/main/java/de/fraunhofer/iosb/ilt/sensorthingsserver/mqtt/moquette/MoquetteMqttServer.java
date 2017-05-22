@@ -231,7 +231,7 @@ public class MoquetteMqttServer implements MqttServer {
         }
         try {
             mqttBroker.startServer(config, userHandlers);
-            String broker = "tcp://" + mqttSettings.getHost() + ":" + mqttSettings.getPort();
+            String broker = "tcp://" + mqttSettings.getInternalHost() + ":" + mqttSettings.getPort();
             try {
                 client = new MqttClient(broker, clientId, new MemoryPersistence());
                 MqttConnectOptions connOpts = new MqttConnectOptions();
