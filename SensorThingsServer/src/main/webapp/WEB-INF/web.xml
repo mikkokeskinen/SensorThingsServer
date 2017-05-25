@@ -7,6 +7,7 @@
 
     <module-name>SensorThingsService</module-name>
 
+    <!-- If the cors filter does not seem to work, try moving the filter and fiter-mapping to the global web.xml of tomcat -->
     <filter>
         <filter-name>CorsFilter</filter-name>
         <filter-class>org.apache.catalina.filters.CorsFilter</filter-class>
@@ -24,10 +25,13 @@
         </init-param>
         <init-param>
             <param-name>cors.allowed.headers</param-name>
-            <param-value>Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, Authorization</param-value>
+            <param-value>Origin,Accept,X-Requested-With,Content-Type,Access-Control-Request-Method,Access-Control-Request-Headers,Authorization</param-value>
+        </init-param>
+        <init-param>
+            <param-name>cors.exposed.headers</param-name>
+            <param-value>Access-Control-Allow-Origin,Access-Control-Allow-Credentials</param-value>
         </init-param>
     </filter>
-
     <filter-mapping>
         <filter-name>CorsFilter</filter-name>
         <url-pattern>/*</url-pattern>
@@ -54,23 +58,36 @@
         <role-name>delete</role-name>
     </security-role>
 
+    <deny-uncovered-http-methods />
+
     <security-constraint>
         <display-name>DatabaseStatus</display-name>
         <web-resource-collection>
             <web-resource-name>DatabaseStatus</web-resource-name>
             <url-pattern>/DatabaseStatus</url-pattern>
-            <url-pattern>/v0.0</url-pattern>
-            <url-pattern>/v0.0/*</url-pattern>
+            <http-method>GET</http-method>
+            <http-method>POST</http-method>
         </web-resource-collection>
         <auth-constraint>
             <description>Reading the database status and initiating database upgrades.</description>
             <role-name>admin</role-name>
         </auth-constraint>
     </security-constraint>
+
+    <security-constraint>
+        <display-name>Requesting Options</display-name>
+        <web-resource-collection>
+            <web-resource-name>SensorThingsAPI Options</web-resource-name>
+            <url-pattern>/v1.0</url-pattern>
+            <url-pattern>/v1.0/*</url-pattern>
+            <http-method>OPTIONS</http-method>
+        </web-resource-collection>
+    </security-constraint>
+
     <security-constraint>
         <display-name>Reading Entities</display-name>
         <web-resource-collection>
-            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <web-resource-name>SensorThingsAPI Read</web-resource-name>
             <url-pattern>/v1.0</url-pattern>
             <url-pattern>/v1.0/*</url-pattern>
             <http-method>GET</http-method>
@@ -79,10 +96,11 @@
             <role-name>read</role-name>
         </auth-constraint>
     </security-constraint>
+
     <security-constraint>
         <display-name>Creating Entities</display-name>
         <web-resource-collection>
-            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <web-resource-name>SensorThingsAPI Create</web-resource-name>
             <url-pattern>/v1.0</url-pattern>
             <url-pattern>/v1.0/*</url-pattern>
             <http-method>POST</http-method>
@@ -94,7 +112,7 @@
     <security-constraint>
         <display-name>Updating Entities</display-name>
         <web-resource-collection>
-            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <web-resource-name>SensorThingsAPI Update</web-resource-name>
             <url-pattern>/v1.0</url-pattern>
             <url-pattern>/v1.0/*</url-pattern>
             <http-method>PUT</http-method>
@@ -107,24 +125,13 @@
     <security-constraint>
         <display-name>Deleting Entities</display-name>
         <web-resource-collection>
-            <web-resource-name>SensorThingsAPI</web-resource-name>
+            <web-resource-name>SensorThingsAPI Delete</web-resource-name>
             <url-pattern>/v1.0</url-pattern>
             <url-pattern>/v1.0/*</url-pattern>
             <http-method>DELETE</http-method>
         </web-resource-collection>
         <auth-constraint>
             <role-name>delete</role-name>
-        </auth-constraint>
-    </security-constraint>
-    <security-constraint>
-        <display-name>Deleting Entities</display-name>
-        <web-resource-collection>
-            <web-resource-name>SensorThingsAPI</web-resource-name>
-            <url-pattern>/v1.0</url-pattern>
-            <url-pattern>/v1.0/*</url-pattern>
-        </web-resource-collection>
-        <auth-constraint>
-            <role-name>admin</role-name>
         </auth-constraint>
     </security-constraint>
 
