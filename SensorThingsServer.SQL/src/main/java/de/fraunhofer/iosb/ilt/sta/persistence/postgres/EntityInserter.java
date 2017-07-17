@@ -74,7 +74,10 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import org.geojson.Crs;
 import org.geojson.Feature;
+import org.geojson.GeoJsonObject;
+import org.geojson.jackson.CrsType;
 import org.geolatte.common.dataformats.json.jackson.JsonException;
 import org.geolatte.common.dataformats.json.jackson.JsonMapper;
 import org.geolatte.geom.Geometry;
@@ -432,11 +435,6 @@ public class EntityInserter {
         }
         if (foi.isSetFeature() && foi.getFeature() == null) {
             throw new IncompleteEntityException("feature can not be null.");
-        }
-        if (foi.isSetEncodingType() && foi.getEncodingType() != null && foi.isSetFeature() && foi.getFeature() != null) {
-            String encodingType = foi.getEncodingType();
-            update.set(qfoi.encodingType, encodingType);
-            insertGeometry(update, qfoi.feature, qfoi.geom, encodingType, foi.getFeature());
         }
         if (foi.isSetEncodingType() && foi.getEncodingType() != null && foi.isSetFeature() && foi.getFeature() != null) {
             String encodingType = foi.getEncodingType();
@@ -1324,20 +1322,33 @@ public class EntityInserter {
      */
     private <T extends StoreClause> T insertGeometry(T clause, StringPath locationPath, GeometryPath<Geometry> geomPath, String encodingType, final Object location) {
         if ("application/vnd.geo+json".equalsIgnoreCase(encodingType)) {
-            // TODO: Postgres does not support Feature.
+            String locJson;
+            try {
+                locJson = new GeoJsonSerializer().serialize(location);
+            } catch (JsonProcessingException ex) {
+                LOGGER.error("Failed to store.", ex);
+                throw new IllegalArgumentException("encoding specifies geoJson, but location not parsable as such.");
+            }
+
+            // Postgres does not support Feature.
             Object geoLocation = location;
             if (location instanceof Feature) {
                 geoLocation = ((Feature) location).getGeometry();
             }
+            // Ensure the geoJson has a crs, otherwise Postgres complains.
+            if (geoLocation instanceof GeoJsonObject) {
+                GeoJsonObject geoJsonObject = (GeoJsonObject) geoLocation;
+                Crs crs = geoJsonObject.getCrs();
+                if (crs == null) {
+                    crs = new Crs();
+                    crs.setType(CrsType.name);
+                    crs.getProperties().put("name", "EPSG:4326");
+                    geoJsonObject.setCrs(crs);
+                }
+            }
             String geoJson;
-            String locJson;
             try {
                 geoJson = new GeoJsonSerializer().serialize(geoLocation);
-                if (geoLocation == location) {
-                    locJson = geoJson;
-                } else {
-                    locJson = new GeoJsonSerializer().serialize(location);
-                }
             } catch (JsonProcessingException ex) {
                 LOGGER.error("Failed to store.", ex);
                 throw new IllegalArgumentException("encoding specifies geoJson, but location not parsable as such.");
@@ -1349,7 +1360,7 @@ public class EntityInserter {
             } catch (JsonException ex) {
                 throw new IllegalArgumentException("Invalid geoJson: " + ex.getMessage());
             }
-            clause.set(geomPath, Expressions.template(Geometry.class, "ST_Force3D(ST_GeomFromGeoJSON({0}))", geoJson));
+            clause.set(geomPath, Expressions.template(Geometry.class, "ST_Force2D(ST_Transform(ST_GeomFromGeoJSON({0}), 4326))", geoJson));
             clause.set(locationPath, locJson);
         } else {
             String json;
