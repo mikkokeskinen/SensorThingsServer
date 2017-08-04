@@ -190,6 +190,11 @@ public class MoquetteMqttServer implements MqttServer {
                 clientSubscriptions.get(msg.getClientID()).remove(msg.getTopicFilter());
                 fireUnsubscribe(new SubscriptionEvent(msg.getTopicFilter()));
             }
+
+            @Override
+            public String getID() {
+                return clientId;
+            }
         });
 
         IConfig config = new MemoryConfig(new Properties());
