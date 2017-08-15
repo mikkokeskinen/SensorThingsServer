@@ -35,6 +35,7 @@ import io.moquette.interception.messages.InterceptUnsubscribeMessage;
 import io.moquette.server.Server;
 import io.moquette.server.config.IConfig;
 import io.moquette.server.config.MemoryConfig;
+import io.moquette.spi.impl.subscriptions.Subscription;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -61,6 +62,7 @@ public class MoquetteMqttServer implements MqttServer {
      * Custom Settings | Tags
      */
     private static final String TAG_WEBSOCKET_PORT = "WebsocketPort";
+    private static final String DEFAULT_STORAGE_CLASS = "io.moquette.persistence.mapdb.MapDBPersistentStore";
     /**
      * Custom Settings | Default values
      */
@@ -205,6 +207,8 @@ public class MoquetteMqttServer implements MqttServer {
         config.setProperty(BrokerConstants.PERSISTENT_STORE_PROPERTY_NAME,
                 Paths.get(settings.getTempPath(),
                         BrokerConstants.DEFAULT_MOQUETTE_STORE_MAP_DB_FILENAME).toString());
+        config.setProperty(BrokerConstants.STORAGE_CLASS_NAME,
+                mqttSettings.getCustomSettings().getWithDefault(BrokerConstants.STORAGE_CLASS_NAME, DEFAULT_STORAGE_CLASS, String.class));
         config.setProperty(BrokerConstants.WEB_SOCKET_PORT_PROPERTY_NAME,
                 mqttSettings.getCustomSettings().getWithDefault(TAG_WEBSOCKET_PORT, DEFAULT_WEBSOCKET_PORT, Integer.class).toString());
         try {
@@ -228,6 +232,29 @@ public class MoquetteMqttServer implements MqttServer {
         } catch (IOException ex) {
             LOGGER.error("Could not start MQTT server.", ex);
         }
+        fetchOldSubscriptions();
+    }
+
+    private void fetchOldSubscriptions() {
+        LOGGER.info("Checking for pre-existing subscriptions.");
+        int count = 0;
+        for (Subscription sub : mqttBroker.getSubscriptions()) {
+            String subClientId = sub.getClientId();
+            if (subClientId.equalsIgnoreCase(clientId)) {
+                continue;
+            }
+            String topic = sub.getTopicFilter().toString();
+            LOGGER.debug("Re-subscribing existing subscription for {} on {}.", subClientId, topic);
+            List<String> clientSubList = clientSubscriptions.get(subClientId);
+            if (clientSubList == null) {
+                clientSubList = new ArrayList<>();
+                clientSubscriptions.put(subClientId, clientSubList);
+            }
+            clientSubList.add(topic);
+            fireSubscribe(new SubscriptionEvent(topic));
+            count++;
+        }
+        LOGGER.info("Found {} pre-existing subscriptions.", count);
     }
 
     @Override
