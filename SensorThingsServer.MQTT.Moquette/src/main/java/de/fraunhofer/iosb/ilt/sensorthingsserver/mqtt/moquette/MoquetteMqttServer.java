@@ -204,13 +204,26 @@ public class MoquetteMqttServer implements MqttServer {
         config.setProperty(BrokerConstants.PORT_PROPERTY_NAME, Integer.toString(mqttSettings.getPort()));
         config.setProperty(BrokerConstants.HOST_PROPERTY_NAME, mqttSettings.getHost());
         config.setProperty(BrokerConstants.ALLOW_ANONYMOUS_PROPERTY_NAME, Boolean.TRUE.toString());
+
+        String default_persistent_store = Paths.get(settings.getTempPath(), BrokerConstants.DEFAULT_MOQUETTE_STORE_MAP_DB_FILENAME).toString();
         config.setProperty(BrokerConstants.PERSISTENT_STORE_PROPERTY_NAME,
-                Paths.get(settings.getTempPath(),
-                        BrokerConstants.DEFAULT_MOQUETTE_STORE_MAP_DB_FILENAME).toString());
+                mqttSettings.getCustomSettings().getWithDefault(
+                        BrokerConstants.PERSISTENT_STORE_PROPERTY_NAME,
+                        default_persistent_store,
+                        String.class));
+
         config.setProperty(BrokerConstants.STORAGE_CLASS_NAME,
-                mqttSettings.getCustomSettings().getWithDefault(BrokerConstants.STORAGE_CLASS_NAME, DEFAULT_STORAGE_CLASS, String.class));
+                mqttSettings.getCustomSettings().getWithDefault(
+                        BrokerConstants.STORAGE_CLASS_NAME,
+                        DEFAULT_STORAGE_CLASS,
+                        String.class));
+
         config.setProperty(BrokerConstants.WEB_SOCKET_PORT_PROPERTY_NAME,
-                mqttSettings.getCustomSettings().getWithDefault(TAG_WEBSOCKET_PORT, DEFAULT_WEBSOCKET_PORT, Integer.class).toString());
+                mqttSettings.getCustomSettings().getWithDefault(
+                        TAG_WEBSOCKET_PORT,
+                        DEFAULT_WEBSOCKET_PORT,
+                        Integer.class).toString());
+
         try {
             mqttBroker.startServer(config, userHandlers);
             String broker = "tcp://" + mqttSettings.getInternalHost() + ":" + mqttSettings.getPort();

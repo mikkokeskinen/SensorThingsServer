@@ -3,12 +3,14 @@
     <!-- service setting -->
     <Parameter name="ApiVersion" value="v1.0" description="The version tag of the API used in the URL."/>
     <Parameter name="serviceRootUrl" value="http://localhost:8080/SensorThingsService" description="The base URL of the SensorThings Server without version."/>
-    <Parameter name="defaultCount" value="true" description="The default value for the $count query option."/>
+    <Parameter name="defaultCount" value="false" description="The default value for the $count query option."/>
     <Parameter name="defaultTop" value="20" description="The default value for the $top query option."/>
-    <Parameter name="maxTop" value="100" description="The maximum allowed value for the $top query option."/>
-    <Parameter name="useAbsoluteNavigationLinks" value="false" description="If true, navigationLinks are absolute, otherwise relative."/>
+    <Parameter name="maxTop" value="1000" description="The maximum allowed value for the $top query option."/>
+    <Parameter name="useAbsoluteNavigationLinks" value="true" description="If true, navigationLinks are absolute, otherwise relative."/>
     <!-- MQTT setting -->
     <Parameter name="mqtt.mqttServerImplementationClass" value="de.fraunhofer.iosb.ilt.sensorthingsserver.mqtt.moquette.MoquetteMqttServer" description="The java class used for running the MQTT server (must implement MqttServer interface)"/>
+    <Parameter name="mqtt.storage_class" value="io.moquette.persistence.mapdb.MapDBPersistentStore" description="The class used by Moquette to persist subscriptions across server restarts."/>
+    <!-- <Parameter name="mqtt.persistent_store" value="/tmp/moquette_store.mapdb" description="Location of the Moquette subscriptions store."/> -->
     <Parameter name="mqtt.Enabled" value="true" description="Specifies wether MQTT support will be enabled or not."/>
     <Parameter name="mqtt.Port" value="1883" description="The port the MQTT server runs on."/>
     <Parameter name="mqtt.QoS" value="0" description="Quality of Service Level for MQTT messages."/>
