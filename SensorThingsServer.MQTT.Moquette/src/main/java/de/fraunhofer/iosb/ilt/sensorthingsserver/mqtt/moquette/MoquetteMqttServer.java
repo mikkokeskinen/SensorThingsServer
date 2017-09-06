@@ -231,6 +231,7 @@ public class MoquetteMqttServer implements MqttServer {
                 client = new MqttClient(broker, clientId, new MemoryPersistence());
                 MqttConnectOptions connOpts = new MqttConnectOptions();
                 connOpts.setCleanSession(true);
+                connOpts.setAutomaticReconnect(true);
                 LOGGER.info("paho-client connecting to broker: " + broker);
                 try {
                     client.connect(connOpts);
@@ -263,8 +264,12 @@ public class MoquetteMqttServer implements MqttServer {
                 clientSubList = new ArrayList<>();
                 clientSubscriptions.put(subClientId, clientSubList);
             }
-            clientSubList.add(topic);
-            fireSubscribe(new SubscriptionEvent(topic));
+            try {
+                fireSubscribe(new SubscriptionEvent(topic));
+                clientSubList.add(topic);
+            } catch (IllegalArgumentException e) {
+                LOGGER.warn("Exception initialising old subscription for client " + subClientId + " to topic " + topic, e);
+            }
             count++;
         }
         LOGGER.info("Found {} pre-existing subscriptions.", count);
