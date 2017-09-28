@@ -7,3 +7,5 @@
 /SensorThingsServer.SQL/target/
 /SensorThingsServer.MQTT.Moquette/target/
 keycloak.json
+.idea/
+*.iml
