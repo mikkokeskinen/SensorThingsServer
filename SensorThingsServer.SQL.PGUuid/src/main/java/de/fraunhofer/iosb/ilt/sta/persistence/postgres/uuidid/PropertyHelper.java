@@ -50,6 +50,8 @@ import de.fraunhofer.iosb.ilt.sta.query.Query;
 import de.fraunhofer.iosb.ilt.sta.util.GeoHelper;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -82,6 +84,20 @@ public class PropertyHelper {
          * @return The Entity created from the Tuple.
          */
         public T create(Tuple tuple, Query query, DataSize dataSize);
+
+        /**
+         * Creates a T, reading the current cursor position of the ResultSet.
+         *
+         * @param resultSet The resultSet to create the Entity from.
+         * @param query The query used to request the data.
+         * @param dataSize The counter for the data size. This counts only the
+         * variable-sided elements, such as Observation.result and
+         * Thing.properties.
+         * @return The Entity created from the Tuple.
+         * @throws java.sql.SQLException if there is a problem reading the
+         * resultSet.
+         */
+        public T create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException;
 
         /**
          * Get the primary key of the table of the entity this factory
@@ -124,6 +140,25 @@ public class PropertyHelper {
         return exprList.toArray(new Expression<?>[exprList.size()]);
     }
 
+    public static <T extends Entity> EntitySet<T> createSetFromTuples(entityFromTupleFactory<T> factory, ResultSet resultSet, Query query, long maxDataSize) throws SQLException {
+        EntitySet<T> entitySet = new EntitySetImpl<>(factory.getEntityType());
+        int count = 0;
+        DataSize size = new DataSize();
+        int top = query.getTopOrDefault();
+        while (resultSet.next()) {
+            entitySet.add(factory.create(resultSet, query, size));
+            count++;
+            if (count >= top) {
+                return entitySet;
+            }
+            if (size.getDataSize() > maxDataSize) {
+                LOGGER.debug("Size limit reached: {} > {}.", size.getDataSize(), maxDataSize);
+                return entitySet;
+            }
+        }
+        return entitySet;
+    }
+
     public static <T extends Entity> EntitySet<T> createSetFromTuples(entityFromTupleFactory<T> factory, List<Tuple> tuples, Query query, long maxDataSize) {
         EntitySet<T> entitySet = new EntitySetImpl<>(factory.getEntityType());
         int count = 0;
@@ -150,6 +185,60 @@ public class PropertyHelper {
 
         public DatastreamFactory(QDatastreams qInstance) {
             this.qInstance = qInstance;
+        }
+
+        @Override
+        public Datastream create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
+
+            Datastream entity = new Datastream();
+            entity.setName(resultSet.getString(qInstance.getMetadata(qInstance.name).getName()));
+            entity.setDescription(resultSet.getString(qInstance.getMetadata(qInstance.description).getName()));
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            entity.setObservationType(resultSet.getString(qInstance.getMetadata(qInstance.observationType).getName()));
+
+            String observedArea = resultSet.getString(PropertyResolver.OBSERVED_AREA_ALIAS);
+            if (observedArea != null) {
+                try {
+                    Polygon polygon = GeoHelper.parsePolygon(observedArea);
+                    entity.setObservedArea(polygon);
+                } catch (IllegalArgumentException e) {
+                    // It's not a polygon, probably a point or a line.
+                }
+            }
+            ObservedProperty op = observedProperyFromId((UUID) resultSet.getObject(qInstance.getMetadata(qInstance.obsPropertyId).getName()));
+            entity.setObservedProperty(op);
+
+            Timestamp pTimeStart = resultSet.getTimestamp(qInstance.getMetadata(qInstance.phenomenonTimeStart).getName());
+            Timestamp pTimeEnd = resultSet.getTimestamp(qInstance.getMetadata(qInstance.phenomenonTimeEnd).getName());
+            if (pTimeStart != null && pTimeEnd != null) {
+                entity.setPhenomenonTime(intervalFromTimes(pTimeStart, pTimeEnd));
+            }
+
+            Timestamp rTimeStart = resultSet.getTimestamp(qInstance.getMetadata(qInstance.resultTimeStart).getName());
+            Timestamp rTimeEnd = resultSet.getTimestamp(qInstance.getMetadata(qInstance.resultTimeEnd).getName());
+            if (rTimeStart != null && rTimeEnd != null) {
+                entity.setResultTime(intervalFromTimes(rTimeStart, rTimeEnd));
+            }
+
+            if (select.isEmpty() || select.contains(EntityProperty.Properties)) {
+                String props = resultSet.getString(qInstance.getMetadata(qInstance.properties).getName());
+                entity.setProperties(jsonToObject(props, Map.class));
+            }
+
+            entity.setSensor(sensorFromId((UUID) resultSet.getObject(qInstance.getMetadata(qInstance.sensorId).getName())));
+            entity.setThing(thingFromId((UUID) resultSet.getObject(qInstance.getMetadata(qInstance.thingId).getName())));
+
+            entity.setUnitOfMeasurement(
+                    new UnitOfMeasurement(
+                            resultSet.getString(qInstance.getMetadata(qInstance.unitName).getName()),
+                            resultSet.getString(qInstance.getMetadata(qInstance.unitSymbol).getName()),
+                            resultSet.getString(qInstance.getMetadata(qInstance.unitDefinition).getName())
+                    )
+            );
+            return entity;
         }
 
         @Override
@@ -220,6 +309,54 @@ public class PropertyHelper {
 
         public MultiDatastreamFactory(QMultiDatastreams qInstance) {
             this.qInstance = qInstance;
+        }
+
+        @Override
+        public MultiDatastream create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
+
+            MultiDatastream entity = new MultiDatastream();
+            entity.setName(resultSet.getString(qInstance.getMetadata(qInstance.name).getName()));
+            entity.setDescription(resultSet.getString(qInstance.getMetadata(qInstance.description).getName()));
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            List<String> observationTypes = jsonToObject(resultSet.getString(qInstance.getMetadata(qInstance.observationTypes).getName()), TYPE_LIST_STRING);
+            entity.setMultiObservationDataTypes(observationTypes);
+
+            String observedArea = resultSet.getString(PropertyResolver.OBSERVED_AREA_ALIAS);
+            if (observedArea != null) {
+                try {
+                    Polygon polygon = GeoHelper.parsePolygon(observedArea);
+                    entity.setObservedArea(polygon);
+                } catch (IllegalArgumentException e) {
+                    // It's not a polygon, probably a point or a line.
+                }
+            }
+
+            Timestamp pTimeStart = resultSet.getTimestamp(qInstance.getMetadata(qInstance.phenomenonTimeStart).getName());
+            Timestamp pTimeEnd = resultSet.getTimestamp(qInstance.getMetadata(qInstance.phenomenonTimeEnd).getName());
+            if (pTimeStart != null && pTimeEnd != null) {
+                entity.setPhenomenonTime(intervalFromTimes(pTimeStart, pTimeEnd));
+            }
+
+            Timestamp rTimeStart = resultSet.getTimestamp(qInstance.getMetadata(qInstance.resultTimeStart).getName());
+            Timestamp rTimeEnd = resultSet.getTimestamp(qInstance.getMetadata(qInstance.resultTimeEnd).getName());
+            if (rTimeStart != null && rTimeEnd != null) {
+                entity.setResultTime(intervalFromTimes(rTimeStart, rTimeEnd));
+            }
+
+            if (select.isEmpty() || select.contains(EntityProperty.Properties)) {
+                String props = resultSet.getString(qInstance.getMetadata(qInstance.properties).getName());
+                entity.setProperties(jsonToObject(props, Map.class));
+            }
+
+            entity.setSensor(sensorFromId((UUID) resultSet.getObject(qInstance.getMetadata(qInstance.sensorId).getName())));
+            entity.setThing(thingFromId((UUID) resultSet.getObject(qInstance.getMetadata(qInstance.thingId).getName())));
+
+            List<UnitOfMeasurement> units = jsonToObject(resultSet.getString(qInstance.getMetadata(qInstance.unitOfMeasurements).getName()), TYPE_LIST_UOM);
+            entity.setUnitOfMeasurements(units);
+            return entity;
         }
 
         @Override
@@ -294,6 +431,26 @@ public class PropertyHelper {
         }
 
         @Override
+        public Thing create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
+
+            Thing entity = new Thing();
+            entity.setName(resultSet.getString(qInstance.getMetadata(qInstance.name).getName()));
+            entity.setDescription(resultSet.getString(qInstance.getMetadata(qInstance.description).getName()));
+
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            if (select.isEmpty() || select.contains(EntityProperty.Properties)) {
+                String props = resultSet.getString(qInstance.getMetadata(qInstance.properties).getName());
+                dataSize.increase(props == null ? 0 : props.length());
+                entity.setProperties(jsonToObject(props, Map.class));
+            }
+
+            return entity;
+        }
+
+        @Override
         public Thing create(Tuple tuple, Query query, DataSize dataSize) {
             Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
 
@@ -334,6 +491,33 @@ public class PropertyHelper {
 
         public FeatureOfInterestFactory(QFeatures qInstance) {
             this.qInstance = qInstance;
+        }
+
+        @Override
+        public FeatureOfInterest create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
+
+            FeatureOfInterest entity = new FeatureOfInterest();
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            entity.setName(resultSet.getString(qInstance.getMetadata(qInstance.name).getName()));
+            entity.setDescription(resultSet.getString(qInstance.getMetadata(qInstance.description).getName()));
+            String encodingType = resultSet.getString(qInstance.getMetadata(qInstance.encodingType).getName());
+            entity.setEncodingType(encodingType);
+
+            if (select.isEmpty() || select.contains(EntityProperty.Feature)) {
+                String locationString = resultSet.getString(qInstance.getMetadata(qInstance.feature).getName());
+                dataSize.increase(locationString == null ? 0 : locationString.length());
+                entity.setFeature(locationFromEncoding(encodingType, locationString));
+            }
+
+            if (select.isEmpty() || select.contains(EntityProperty.Properties)) {
+                String props = resultSet.getString(qInstance.getMetadata(qInstance.properties).getName());
+                entity.setProperties(jsonToObject(props, Map.class));
+            }
+
+            return entity;
         }
 
         @Override
@@ -387,6 +571,17 @@ public class PropertyHelper {
         }
 
         @Override
+        public HistoricalLocation create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            HistoricalLocation entity = new HistoricalLocation();
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            entity.setThing(thingFromId((UUID) resultSet.getObject(qInstance.getMetadata(qInstance.thingId).getName())));
+            entity.setTime(instantFromTime(resultSet.getTimestamp(qInstance.getMetadata(qInstance.time).getName())));
+            return entity;
+        }
+
+        @Override
         public HistoricalLocation create(Tuple tuple, Query query, DataSize dataSize) {
             HistoricalLocation entity = new HistoricalLocation();
             UUID id = tuple.get(qInstance.id);
@@ -418,6 +613,32 @@ public class PropertyHelper {
 
         public LocationFactory(QLocations qInstance) {
             this.qInstance = qInstance;
+        }
+
+        @Override
+        public Location create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
+            Location entity = new Location();
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            entity.setName(resultSet.getString(qInstance.getMetadata(qInstance.name).getName()));
+            entity.setDescription(resultSet.getString(qInstance.getMetadata(qInstance.description).getName()));
+            String encodingType = resultSet.getString(qInstance.getMetadata(qInstance.encodingType).getName());
+            entity.setEncodingType(encodingType);
+
+            if (select.isEmpty() || select.contains(EntityProperty.Location)) {
+                String locationString = resultSet.getString(qInstance.getMetadata(qInstance.location).getName());
+                dataSize.increase(locationString == null ? 0 : locationString.length());
+                entity.setLocation(locationFromEncoding(encodingType, locationString));
+            }
+
+            if (select.isEmpty() || select.contains(EntityProperty.Properties)) {
+                String props = resultSet.getString(qInstance.getMetadata(qInstance.properties).getName());
+                entity.setProperties(jsonToObject(props, Map.class));
+            }
+
+            return entity;
         }
 
         @Override
@@ -470,6 +691,32 @@ public class PropertyHelper {
         }
 
         @Override
+        public Sensor create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
+
+            Sensor entity = new Sensor();
+            entity.setName(resultSet.getString(qInstance.getMetadata(qInstance.name).getName()));
+            entity.setDescription(resultSet.getString(qInstance.getMetadata(qInstance.description).getName()));
+            entity.setEncodingType(resultSet.getString(qInstance.getMetadata(qInstance.encodingType).getName()));
+
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            if (select.isEmpty() || select.contains(EntityProperty.Metadata)) {
+                String metaDataString = resultSet.getString(qInstance.getMetadata(qInstance.metadata).getName());
+                dataSize.increase(metaDataString == null ? 0 : metaDataString.length());
+                entity.setMetadata(metaDataString);
+            }
+
+            if (select.isEmpty() || select.contains(EntityProperty.Properties)) {
+                String props = resultSet.getString(qInstance.getMetadata(qInstance.properties).getName());
+                entity.setProperties(jsonToObject(props, Map.class));
+            }
+
+            return entity;
+        }
+
+        @Override
         public Sensor create(Tuple tuple, Query query, DataSize dataSize) {
             Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
 
@@ -516,6 +763,79 @@ public class PropertyHelper {
 
         public ObservationFactory(QObservations qInstance) {
             this.qInstance = qInstance;
+        }
+
+        @Override
+        public Observation create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            Observation entity = new Observation();
+            Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
+
+            UUID dsId = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.datastreamId).getName());
+            entity.setDatastream(datastreamFromId(dsId));
+            UUID mDsId = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.multiDatastreamId).getName());
+            entity.setMultiDatastream(multiDatastreamFromId(mDsId));
+
+            UUID foiId = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.featureId).getName());
+            entity.setFeatureOfInterest(featureOfInterestFromId(foiId));
+
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            if (select.isEmpty() || select.contains(EntityProperty.Parameters)) {
+                String props = resultSet.getString(qInstance.getMetadata(qInstance.parameters).getName());
+                dataSize.increase(props == null ? 0 : props.length());
+                entity.setParameters(jsonToObject(props, Map.class));
+            }
+
+            Timestamp pTimeStart = resultSet.getTimestamp(qInstance.getMetadata(qInstance.phenomenonTimeStart).getName());
+            Timestamp pTimeEnd = resultSet.getTimestamp(qInstance.getMetadata(qInstance.phenomenonTimeEnd).getName());
+            entity.setPhenomenonTime(valueFromTimes(pTimeStart, pTimeEnd));
+
+            if (select.isEmpty() || select.contains(EntityProperty.Result)) {
+                Byte resultTypeOrd = resultSet.getByte(qInstance.getMetadata(qInstance.resultType).getName());
+                ResultType resultType = ResultType.fromSqlValue(resultTypeOrd);
+                switch (resultType) {
+                    case BOOLEAN:
+                        entity.setResult(resultSet.getBoolean(qInstance.getMetadata(qInstance.resultBoolean).getName()));
+                        break;
+
+                    case NUMBER:
+                        try {
+                            entity.setResult(new BigDecimal(resultSet.getString(qInstance.getMetadata(qInstance.resultString).getName())));
+                        } catch (NumberFormatException e) {
+                            // It was not a Number? Use the double value.
+                            entity.setResult(resultSet.getDouble(qInstance.getMetadata(qInstance.resultNumber).getName()));
+                        }
+                        break;
+
+                    case OBJECT_ARRAY:
+                        String jsonData = resultSet.getString(qInstance.getMetadata(qInstance.resultJson).getName());
+                        dataSize.increase(jsonData == null ? 0 : jsonData.length());
+                        entity.setResult(jsonToTree(jsonData));
+                        break;
+
+                    case STRING:
+                        String stringData = resultSet.getString(qInstance.getMetadata(qInstance.resultString).getName());
+                        dataSize.increase(stringData == null ? 0 : stringData.length());
+                        entity.setResult(stringData);
+                        break;
+                }
+            }
+
+            if (select.isEmpty() || select.contains(EntityProperty.ResultQuality)) {
+                String resultQuality = resultSet.getString(qInstance.getMetadata(qInstance.resultQuality).getName());
+                dataSize.increase(resultQuality == null ? 0 : resultQuality.length());
+                entity.setResultQuality(jsonToObject(resultQuality, Object.class));
+            }
+
+            entity.setResultTime(instantFromTime(resultSet.getTimestamp(qInstance.getMetadata(qInstance.resultTime).getName())));
+
+            Timestamp vTimeStart = resultSet.getTimestamp(qInstance.getMetadata(qInstance.validTimeStart).getName());
+            Timestamp vTimeEnd = resultSet.getTimestamp(qInstance.getMetadata(qInstance.validTimeEnd).getName());
+            if (vTimeStart != null && vTimeEnd != null) {
+                entity.setValidTime(intervalFromTimes(vTimeStart, vTimeEnd));
+            }
+            return entity;
         }
 
         @Override
@@ -616,6 +936,26 @@ public class PropertyHelper {
 
         public ObservedPropertyFactory(QObsProperties qInstance) {
             this.qInstance = qInstance;
+        }
+
+        @Override
+        public ObservedProperty create(ResultSet resultSet, Query query, DataSize dataSize) throws SQLException {
+            Set<Property> select = query == null ? Collections.emptySet() : query.getSelect();
+
+            ObservedProperty entity = new ObservedProperty();
+            entity.setDefinition(resultSet.getString(qInstance.getMetadata(qInstance.definition).getName()));
+            entity.setDescription(resultSet.getString(qInstance.getMetadata(qInstance.description).getName()));
+            UUID id = (UUID) resultSet.getObject(qInstance.getMetadata(qInstance.id).getName());
+            entity.setId(new UuidId(id));
+
+            entity.setName(resultSet.getString(qInstance.getMetadata(qInstance.name).getName()));
+
+            if (select.isEmpty() || select.contains(EntityProperty.Properties)) {
+                String props = resultSet.getString(qInstance.getMetadata(qInstance.properties).getName());
+                entity.setProperties(jsonToObject(props, Map.class));
+            }
+
+            return entity;
         }
 
         @Override

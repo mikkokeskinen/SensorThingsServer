@@ -37,6 +37,8 @@ import de.fraunhofer.iosb.ilt.sta.persistence.postgres.DataSize;
 import de.fraunhofer.iosb.ilt.sta.query.Expand;
 import de.fraunhofer.iosb.ilt.sta.query.Query;
 import de.fraunhofer.iosb.ilt.sta.util.UrlHelper;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -186,24 +188,28 @@ class EntityCreator implements ResourcePathVisitor {
         int top = query.getTopOrDefault();
         sqlQuery.limit(top + 1);
 
-        int skip = 0;
+        int skip;
         if (query.getSkip().isPresent()) {
             skip = query.getSkip().get();
             sqlQuery.offset(skip);
         }
         long start = System.currentTimeMillis();
-        List<Tuple> results;
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("query: {}", sqlQuery.getSQL().getSQL());
+            LOGGER.trace("Query: {}", sqlQuery.getSQL().getSQL());
         }
-        results = sqlQuery.fetch();
+        ResultSet results = sqlQuery.getResults();
         long end = System.currentTimeMillis();
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Fetched {} items in {} ms.", results.size(), end - start);
+            LOGGER.debug("Query executed in {} ms.", end - start);
         }
 
         PropertyHelper.entityFromTupleFactory<? extends Entity> factory = PropertyHelper.getFactoryFor(element.getEntityType().getImplementingClass());
-        EntitySet<? extends Entity> entitySet = PropertyHelper.createSetFromTuples(factory, results, query, pm.getCoreSettings().getDataSizeMax());
+        EntitySet<? extends Entity> entitySet;
+        try {
+            entitySet = PropertyHelper.createSetFromTuples(factory, results, query, pm.getCoreSettings().getDataSizeMax());
+        } catch (SQLException ex) {
+            throw new IllegalStateException(ex);
+        }
 
         if (entitySet == null) {
             throw new IllegalStateException("Empty set!");
@@ -217,13 +223,17 @@ class EntityCreator implements ResourcePathVisitor {
         }
 
         int entityCount = entitySet.size();
-        int resultCount = results.size();
-        if (entityCount < top && resultCount > entityCount) {
+        boolean hasMore;
+        try {
+            hasMore = results.next();
+        } catch (SQLException ex) {
+            throw new IllegalStateException(ex);
+        }
+        if (entityCount < top && hasMore) {
             // The loading was aborted, probably due to size constraints.
-            top = entityCount;
             query.setTop(entityCount);
         }
-        if (resultCount > top) {
+        if (hasMore) {
             entitySet.setNextLink(UrlHelper.generateNextLink(path, query));
         }
         for (Entity e : entitySet) {

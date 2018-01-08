@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
  */
 public class PropertyResolver {
 
+    public static final String OBSERVED_AREA_ALIAS = "OBSERVED_AREA";
     /**
      * The logger for this class.
      */
@@ -58,7 +59,7 @@ public class PropertyResolver {
         addEntry(EntityProperty.Name, QDatastreams.class, (ExpressionFactory<QDatastreams>) (QDatastreams qPath) -> qPath.name);
         addEntry(EntityProperty.Description, QDatastreams.class, (ExpressionFactory<QDatastreams>) (QDatastreams qPath) -> qPath.description);
         addEntry(EntityProperty.ObservationType, QDatastreams.class, (ExpressionFactory<QDatastreams>) (QDatastreams qPath) -> qPath.observationType);
-        addEntry(EntityProperty.ObservedArea, QDatastreams.class, (ExpressionFactory<QDatastreams>) (QDatastreams qPath) -> qPath.observedArea.asText());
+        addEntry(EntityProperty.ObservedArea, QDatastreams.class, (ExpressionFactory<QDatastreams>) (QDatastreams qPath) -> qPath.observedArea.asText().as(OBSERVED_AREA_ALIAS));
         addEntry(EntityProperty.PhenomenonTime, QDatastreams.class, KEY_TIME_INTERVAL_START, (ExpressionFactory<QDatastreams>) (QDatastreams qPath) -> qPath.phenomenonTimeStart);
         addEntry(EntityProperty.PhenomenonTime, QDatastreams.class, KEY_TIME_INTERVAL_END, (ExpressionFactory<QDatastreams>) (QDatastreams qPath) -> qPath.phenomenonTimeEnd);
         addEntry(EntityProperty.Properties, QDatastreams.class, (ExpressionFactory<QDatastreams>) (QDatastreams qPath) -> qPath.properties);
@@ -76,7 +77,7 @@ public class PropertyResolver {
         addEntry(EntityProperty.Name, QMultiDatastreams.class, (ExpressionFactory<QMultiDatastreams>) (QMultiDatastreams qPath) -> qPath.name);
         addEntry(EntityProperty.Description, QMultiDatastreams.class, (ExpressionFactory<QMultiDatastreams>) (QMultiDatastreams qPath) -> qPath.description);
         addEntry(EntityProperty.MultiObservationDataTypes, QMultiDatastreams.class, (ExpressionFactory<QMultiDatastreams>) (QMultiDatastreams qPath) -> qPath.observationTypes);
-        addEntry(EntityProperty.ObservedArea, QMultiDatastreams.class, (ExpressionFactory<QMultiDatastreams>) (QMultiDatastreams qPath) -> qPath.observedArea.asText());
+        addEntry(EntityProperty.ObservedArea, QMultiDatastreams.class, (ExpressionFactory<QMultiDatastreams>) (QMultiDatastreams qPath) -> qPath.observedArea.asText().as(OBSERVED_AREA_ALIAS));
         addEntry(EntityProperty.PhenomenonTime, QMultiDatastreams.class, KEY_TIME_INTERVAL_START, (ExpressionFactory<QMultiDatastreams>) (QMultiDatastreams qPath) -> qPath.phenomenonTimeStart);
         addEntry(EntityProperty.PhenomenonTime, QMultiDatastreams.class, KEY_TIME_INTERVAL_END, (ExpressionFactory<QMultiDatastreams>) (QMultiDatastreams qPath) -> qPath.phenomenonTimeEnd);
         addEntry(EntityProperty.Properties, QMultiDatastreams.class, (ExpressionFactory<QMultiDatastreams>) (QMultiDatastreams qPath) -> qPath.properties);
