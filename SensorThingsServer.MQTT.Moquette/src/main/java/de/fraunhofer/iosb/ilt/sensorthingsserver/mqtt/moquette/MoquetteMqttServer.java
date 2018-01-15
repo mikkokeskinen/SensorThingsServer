@@ -61,6 +61,8 @@ public class MoquetteMqttServer implements MqttServer {
      * Custom Settings | Tags
      */
     private static final String TAG_WEBSOCKET_PORT = "WebsocketPort";
+    private static final String TAG_MOQUETTE_AUTHENTICATOR_CLASS_NAME = "MoquetteAuthenticatorClass";
+    private static final String TAG_MOQUETTE_AUTHORIZATOR_CLASS_NAME = "MoquetteAuthorizatorClass";
     /**
      * Custom Settings | Default values
      */
@@ -202,6 +204,10 @@ public class MoquetteMqttServer implements MqttServer {
                         BrokerConstants.DEFAULT_MOQUETTE_STORE_MAP_DB_FILENAME).toString());
         config.setProperty(BrokerConstants.WEB_SOCKET_PORT_PROPERTY_NAME,
                 mqttSettings.getCustomSettings().getWithDefault(TAG_WEBSOCKET_PORT, DEFAULT_WEBSOCKET_PORT, Integer.class).toString());
+        config.setProperty(BrokerConstants.AUTHENTICATOR_CLASS_NAME,
+                mqttSettings.getCustomSettings().getWithDefault(TAG_MOQUETTE_AUTHENTICATOR_CLASS_NAME, "", String.class));
+        config.setProperty(BrokerConstants.AUTHORIZATOR_CLASS_NAME,
+                mqttSettings.getCustomSettings().getWithDefault(TAG_MOQUETTE_AUTHORIZATOR_CLASS_NAME, "", String.class));
         try {
             mqttBroker.startServer(config, userHandlers);
             String broker = "tcp://" + mqttSettings.getInternalHost() + ":" + mqttSettings.getPort();
